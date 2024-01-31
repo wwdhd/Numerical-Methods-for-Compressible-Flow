@@ -448,9 +448,10 @@ end subroutine
 
  !%%%%%%%%%%%% HLLC flux %%%%%%%%%%%%%%%%%%%%%
    Subroutine HLLC(CDL,CDR,Flux)
-   Real, dimension(3) :: FL, FR, CDL, CDR, Flux, USTL, USTR
-   Real sa1, sa2, ul, ur, sl, sr, rhol, rhor, pl, pr, el, er, sst
+   Real, dimension(3) :: FL, FR, CDL, CDR, Flux, USTL, USTR, usl, usr
+   Real sa1, sa2, sl, sr, ul, ur, dl, dr, el, er, pl, pr, ss, rhol, rhor, sst
 
+	
 	CALL FLUEVAL(CDL, FL)
 	CALL FLUEVAL(CDR, FR)
 
@@ -466,11 +467,11 @@ end subroutine
 	rhol = cdl(1)
 	rhor = cdr(1)
 
-	pl = (gm-1)*(cdl(3) - 0.5*cdl(2)*ul)
-	pr = (gm-1)*(cdr(3) - 0.5*cdr(2)*ur)
-
 	el = cdl(3)
 	er = cdr(3)
+
+	pl = (gm-1)*(cdl(3) - 0.5*cdl(2)*ul)
+	pr = (gm-1)*(cdr(3) - 0.5*cdr(2)*ur)
 
 	sst= (pr - pl + rhol*ul*(sl - ul) - rhor*ur*(sr-ur)) / (rhol*(sl-ul) - rhor*(sr-ur))
 
@@ -485,13 +486,20 @@ end subroutine
 
 	IF (SL >= 0) THEN
     		FLUX = FL
-	ELSE IF ((SL <= 0) .AND. (0 <= Sst)) THEN
-    		FLUX = FL + SL * (USTL - UL)
-	ELSE IF ((SST <= 0) .AND. (0 <= SR)) THEN
-    		FLUX = FR + SR * (USTR - UR)
-	ELSE
-    		FLUX = FR
-	END IF
+	end if
+	
+	if (sl<=0 .and. sst>0) then
+		flux = fl+sl*(ustl-cdl)
+	end if
+
+	if (sst<=0 .and. sr>=0) then
+		flux = fl+sl*(ustl-cdl)
+	end if
+
+	if (sr<=0) then
+	flux = fr
+	end if
+
 
   End subroutine 
 
