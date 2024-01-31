@@ -348,9 +348,7 @@ end subroutine
   !%%%%%%%%%%%%%%%%% minmod slope limiter %%%%%%%%%%%%%%%%%
   Real function minmod(x,y)
    Real x,y
-   minmod = 0.
-   print*,' minmod limiiter is not implemented'
-   stop
+   minmod = 0.5 * (sign(1.0, x) + sign(1.0, y)) * min(abs(x), abs(y))
   End function
 
  ! Compute the numerical flux
@@ -417,49 +415,64 @@ end subroutine
 
 	speed = max(abs(cdl(2)/cdl(1))+sa1,abs(cdr(2)/cdr(1))+sa2)
 
-	Flux = 0.5*(FL+FR) - 0.5*speed*(CDR-CDL)
-      stop  
+	Flux = 0.5*(FL+FR) - 0.5*speed*(CDR-CDL)  
   End subroutine 
 
  !%%%%%%%%%%%%%% HLL flux %%%%%%%%%%%%%%%%%%%%%
    Subroutine HLL(CDL,CDR,Flux)
-      Real  FL(3), FR(3), CDL(3), CDR(3), Flux(3), SL, SR, SA1, SA2
-	CALL FLUEVAL(CDL,FL)
-        CALL FLUEVAL(CDR,FR)
-	sa1 = ComputeSoundSpeed(cdl)
-	sa2 = ComputeSoundSpeed(cdr)
-      
-	sl = min((cdl(2)/cdl(1))-sa1,(cdr(2)/cdr(1))-sa2)
-	sr = max((cdl(2)/cdl(1))+sa1,(cdr(2)/cdr(1))+sa2)
+      Real, dimension(3) :: FL, FR, CDL, CDR, Flux
+  	Real :: SL, SR, SA1, SA2
 
-	IF (SL >= 0) THEN
-    		FLUX = FL
-	ELSE IF ((SL <= 0) .AND. (0 <= SR)) THEN
-    		FLUX = (SR*FL - SL*FR + SL*SR*((cdr(2)/cdr(1)) - (cdr(2)/cdr(1)) + sa2)) / (SR - SL)
-	ELSE
-    		FLUX = FR
-	END IF
-      stop  
+ 	 ! Evaluate flux at left and right states
+  	CALL FLUEVAL(CDL, FL)
+  	CALL FLUEVAL(CDR, FR)
+
+  	! Compute sound speeds
+  	SA1 = ComputeSoundSpeed(CDL)
+  	SA2 = ComputeSoundSpeed(CDR)
+
+  	! Compute wave speeds
+  	SL = min(CDL(2)/CDL(1) - SA1, CDR(2)/CDR(1) - SA2)
+  	SR = max(CDL(2)/CDL(1) + SA1, CDR(2)/CDR(1) + SA2)
+
+  	! HLL flux calculation
+  	if (SL >= 0.0) then
+    	   Flux = FL
+  	elseif (SR <= 0.0) then
+     	   Flux = FR
+  	else
+    	   Flux = (SR*FL - SL*FR + SL*SR*(CDR - CDL)) / (SR - SL)
+  	endif
   End subroutine 
 
 
  !%%%%%%%%%%%% HLLC flux %%%%%%%%%%%%%%%%%%%%%
    Subroutine HLLC(CDL,CDR,Flux)
-      Real  FL(3), FR(3), CDL(3), CDR(3), Flux(3), SL, SR, SA1, SA2, USTL(3), USTR(3), EL, ER, UR, UL, RHOL, RHOR, PL, PR, SST
-	CALL FLUEVAL(CDL,FL)
-        CALL FLUEVAL(CDR,FR)
+   Real, dimension(3) :: FL, FR, CDL, CDR, Flux, USTL, USTR
+   Real sa1, sa2, ul, ur, sl, sr, rhol, rhor, pl, pr, el, er, sst
+
+	CALL FLUEVAL(CDL, FL)
+	CALL FLUEVAL(CDR, FR)
+
 	sa1 = ComputeSoundSpeed(cdl)
 	sa2 = ComputeSoundSpeed(cdr)
+
+	ul = cdl(2)/cdl(1)
+	ur = cdr(2)/cdr(1)
       
-	sl = min((cdl(2)/cdl(1))-sa1,(cdr(2)/cdr(1))-sa2)
-	sr = max((cdl(2)/cdl(1))+sa1,(cdr(2)/cdr(1))+sa2)
+	sl = min(ul-sa1,ur-sa2)
+	sr = max(ul+sa1,ul+sa2)
 
-	
-	Sst= (PR-PL + rhol*ul*(sl-ul)-rhor*ur*(sr-ur))/(rhol*(sl-ul)-rhor*(sr-ur))
+	rhol = cdl(1)
+	rhor = cdr(1)
 
-	El = cdl(3)
-	Er = cdr(3)
+	pl = (gm-1)*(cdl(3) - 0.5*cdl(2)*ul)
+	pr = (gm-1)*(cdr(3) - 0.5*cdr(2)*ur)
 
+	el = cdl(3)
+	er = cdr(3)
+
+	sst= (pr - pl + rhol*ul*(sl - ul) - rhor*ur*(sr-ur)) / (rhol*(sl-ul) - rhor*(sr-ur))
 
 	ustl(1) = rhol*((sl-ul)/(sl-sst))*1
 	ustl(2) = rhol*((sl-ul)/(sl-sst))*sst
@@ -479,7 +492,6 @@ end subroutine
 	ELSE
     		FLUX = FR
 	END IF
-      stop  
 
   End subroutine 
 
@@ -503,8 +515,11 @@ end subroutine
 	 
 	 ! second order TVD 
 	 Case(2)
-        print*,'no reconstruction found. stop the code!'
-        stop  
+	 do f = 1, 3
+          r = minmod((U1D(f, 0) - U1D(f, -1)), (U1D(f, 1) - U1D(f, 0)))
+          CDL(f) = U1D(f, 0) + 0.5 * r
+          CDR(f) = U1D(f, 1) - 0.5 * r
+        end do
 
 	 Case default
 	 print*,' Wrong spatial accuracy. Stop the code'
