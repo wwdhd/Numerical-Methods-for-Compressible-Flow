@@ -377,10 +377,14 @@ end subroutine
       InterCellFlux(Rkstage,:,i) = LocalFlux
 
    Case(3)
-      CALL HLL(CDL,CDR,LocalFlux)
+      CALL Roe(CDL,CDR,LocalFlux)
       InterCellFlux(Rkstage,:,i) = LocalFlux
 
    Case(4)
+      CALL HLL(CDL,CDR,LocalFlux)
+      InterCellFlux(Rkstage,:,i) = LocalFlux
+
+   Case(5)
       CALL HLLC(CDL,CDR,LocalFlux)
       InterCellFlux(Rkstage,:,i) = LocalFlux
       
@@ -417,6 +421,61 @@ end subroutine
 
 	Flux = 0.5*(FL+FR) - 0.5*speed*(CDR-CDL)  
   End subroutine 
+
+ !%%%%%%%% Roe flux %%%%%%%%%%%%%%%%%%
+   Subroutine Roe(CDL, CDR, Flux)
+	Real, dimension(3)::  FL, FR, CDL, CDR, Flux, k1, k2, k3, Deltau, n1, n2, n3
+	Real:: Speed, sa1, sa2, du, dh, da, RL, RR, UL, UR, HL, HR, lambda1, lambda2, lambda3, alpha1, alpha2, alpha3
+	integer :: i
+	CALL FLUEVAL(CDL,FL)
+        CALL FLUEVAL(CDR,FR)
+
+	sa1 = ComputeSoundSpeed(cdl)
+	sa2 = ComputeSoundSpeed(cdr)
+	
+	RL = CDL(1)
+    	UL = CDL(2)
+    	HL = CDL(3)
+
+    	RR = CDR(1)
+    	UR = CDR(2)
+    	HR = CDR(3)
+
+	Du = ((sqrt(RL)*UL)+(sqrt(RR*UR)))/(sqrt(RL)+sqrt(RR))
+	Dh = ((sqrt(RL)*HL)+(sqrt(RR*HR)))/(sqrt(RL)+sqrt(RR))
+	Da = (GM-1)*(DH-((0.5)*(DU*DU)))
+
+	lambda1 = Du-da
+	lambda2 = Du
+	lambda3 = Du+da
+
+	K1(1) = 1
+	K1(2) = lambda1
+	K2(3) = DH-Du*Da
+
+	K2(1) = 1
+	K2(2) = lambda2
+	K2(3) = (0.5)*(DU*DU)
+
+	K3(1) = 1
+	K3(2) = lambda3
+	K3(3) = DH-Du*da
+
+	do i = 1,3
+	   Deltau(i) = CDR(i)-CDL(i)
+	end do
+
+	alpha1 = ((GM-1)/(Da*Da))*((Deltau(1)*(DH-(Du*Du)))*(Du*Deltau(2))-Deltau(3))
+	alpha2 = (1/(2*Da))*((Deltau(1)*(Du-Da))-Deltau(2)-(Da*alpha2))
+	alpha3 = Deltau(1)-(alpha1+alpha2)
+
+	n1 = alpha1*abs(lambda1)*k1
+	n2 = alpha2*abs(lambda2)*k2
+	n3 = alpha3*abs(lambda3)*k3
+
+	Flux = 0.5*(FL*FR)-0.5*(n1+n2+n3)
+   End Subroutine
+
 
  !%%%%%%%%%%%%%% HLL flux %%%%%%%%%%%%%%%%%%%%%
    Subroutine HLL(CDL,CDR,Flux)
@@ -552,3 +611,4 @@ end subroutine
   
 
  END 
+
