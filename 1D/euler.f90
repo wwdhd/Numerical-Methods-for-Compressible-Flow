@@ -424,56 +424,86 @@ end subroutine
 
  !%%%%%%%% Roe flux %%%%%%%%%%%%%%%%%%
    Subroutine Roe(CDL, CDR, Flux)
-	Real, dimension(3)::  FL, FR, CDL, CDR, Flux, k1, k2, k3, Deltau, n1, n2, n3
-	Real:: Speed, sa1, sa2, du, dh, da, RL, RR, UL, UR, HL, HR, lambda1, lambda2, lambda3, alpha1, alpha2, alpha3
+	Real, dimension(3)::  FL, FR, CDL, CDR, Flux, k1, k2, k3, Deltau, n1, n2, n3, lambda, alpha_tilde, test
+	Real:: Speed, sa1, sa2, u_tilde, h_tilde, a_tilde, ul, ur, rhol, rhor, pl, pr, el, er, hl, hr
 	integer :: i
 	CALL FLUEVAL(CDL,FL)
         CALL FLUEVAL(CDR,FR)
 
+	!Calculate the required known values
+
 	sa1 = ComputeSoundSpeed(cdl)
 	sa2 = ComputeSoundSpeed(cdr)
 	
-	RL = CDL(1)
-    	UL = CDL(2)
-    	HL = CDL(3)
+	ul = cdl(2)/cdl(1)
+	ur = cdr(2)/cdr(1)
 
-    	RR = CDR(1)
-    	UR = CDR(2)
-    	HR = CDR(3)
+	rhol = cdl(1)
+	rhor = cdr(1)
 
-	Du = ((sqrt(RL)*UL)+(sqrt(RR*UR)))/(sqrt(RL)+sqrt(RR))
-	Dh = ((sqrt(RL)*HL)+(sqrt(RR*HR)))/(sqrt(RL)+sqrt(RR))
-	Da = (GM-1)*(DH-((0.5)*(DU*DU)))
+	pl = (gm-1)*(cdl(3) - 0.5*cdl(2)*ul)
+	pr = (gm-1)*(cdr(3) - 0.5*cdr(2)*ur)
 
-	lambda1 = Du-da
-	lambda2 = Du
-	lambda3 = Du+da
+	el = cdl(3)
+	er = cdr(3)
 
+	hl = (el+pl)/rhol
+	hr = (er+pr)/rhor
+
+	!Compute the Roe average values
+
+	u_tilde = SQRT(rhoL*uL + rhoR*uR) / (rhoL + rhoR)
+	H_tilde = SQRT(rhoL*HL + rhoR*HR) / (rhoL + rhoR)
+
+	a_tilde = SQRT((GM - 1)*(H_tilde - 0.5*(u_tilde**2)))
+	
+	!Compute the Averaged Eigenvalues
+
+	lambda(1) = u_tilde - a_tilde
+	lambda(2) = u_tilde
+	lambda(3) = u_tilde + a_tilde
+
+	!Compute the averaged right Eigenvectors
+
+	!K_tilde_1
 	K1(1) = 1
-	K1(2) = lambda1
-	K2(3) = DH-Du*Da
+	K1(2) = u_tilde - a_tilde
+	K1(3) = h_tilde - (u_tilde*a_tilde)
 
+	!K_tilde_2
 	K2(1) = 1
-	K2(2) = lambda2
-	K2(3) = (0.5)*(DU*DU)
+	K2(2) = u_tilde
+	K2(3) = 0.5*(u_tilde**2)
 
+
+	!K_tilde_3
 	K3(1) = 1
-	K3(2) = lambda3
-	K3(3) = DH-Du*da
+	K3(2) = u_tilde + a_tilde
+	K3(3) = h_tilde + (u_tilde*a_tilde)
+	
+	!Calculate the change of the conserved quantity
 
 	do i = 1,3
-	   Deltau(i) = CDR(i)-CDL(i)
+	   deltau(i) = CDR(i)-CDL(i)
 	end do
 
-	alpha1 = ((GM-1)/(Da*Da))*((Deltau(1)*(DH-(Du*Du)))*(Du*Deltau(2))-Deltau(3))
-	alpha2 = (1/(2*Da))*((Deltau(1)*(Du-Da))-Deltau(2)-(Da*alpha2))
-	alpha3 = Deltau(1)-(alpha1+alpha2)
+	!Calculate the wave strengths value, alpha_tilde
 
-	n1 = alpha1*abs(lambda1)*k1
-	n2 = alpha2*abs(lambda2)*k2
-	n3 = alpha3*abs(lambda3)*k3
+	alpha_tilde(2) = (GM - 1) / (a_tilde**2) * (deltau(1) * (h_tilde - u_tilde**2) + u_tilde*deltau(2) - deltau(3))
+	alpha_tilde(1) = 1 / (2*a_tilde) * (deltau(1) * (u_tilde + a_tilde) - deltau(2) - a_tilde*alpha_tilde(2))
+	alpha_tilde(3) = deltau(1) - (alpha_tilde(1) + alpha_tilde(2))
 
-	Flux = 0.5*(FL*FR)-0.5*(n1+n2+n3)
+	!Calculate Roe flux
+
+	n1 = (alpha_tilde(1)*abs(lambda(1))*K1)
+	n2 = (alpha_tilde(2)*abs(lambda(2))*K2)
+	n3 = (alpha_tilde(3)*abs(lambda(3))*K3)
+
+	flux = 0.5*(FL+FR)-0.5*(n1+n2+n3)
+
+	print*,' Deltau', Deltau(1), Deltau(2), Deltau(3)
+	print*,' u', ul, ur	
+
    End Subroutine
 
 
