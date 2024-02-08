@@ -1611,17 +1611,17 @@
                     psi(L) = 1.0D0
                 ELSE
                         IF (D2.GT.0.0D0)THEN
-                             DMIN= va-umin
+                             DMIN= Vert(L)-Va
                              DPLUS= umax-va
-                             EPSI2=(KAPPA_VEN*MeshElements(i)%rad)**3
-                             PSI(L)= (1/dmin)*((dplus**2+epsi2**2)*dmin + (2*(dmin**2)*dplus)) / (dplus**2+dmin**2+dmin*dplus+epsi2**2)	
+                             EPSI2=(KAPPA_VEN*delta_x)**3
+                             PSI(L)= (1/dmin) * ((dplus**2+epsi2) * dmin + (2*(dmin**2)*dplus)) / (dplus**2 + 2*dmin**2 + dmin*dplus + epsi2)	
 
                         END IF
                         IF (D2.LT.0.0D0)THEN
-            		     DMIN= va-umax
-            		     DPLUS= umin-va
-            		     EPSI2=(KAPPA_VEN*MeshElements(i)%rad)**3
-            		     PSI(L)= (1/dmin)*((dplus**2+epsi2**2)*dmin + (2*(dmin**2)*dplus)) / (dplus**2+dmin**2+dmin*dplus+epsi2**2)		
+            		     DMIN= Vert(L)-Va
+                             DPLUS= umax-va
+                             EPSI2=(KAPPA_VEN*delta_x)**3
+                             PSI(L)= (1/dmin) * ((dplus**2+epsi2) * dmin + (2*(dmin**2)*dplus)) / (dplus**2 + 2*dmin**2 + dmin*dplus + epsi2)		
                         END IF
                 END IF
           END IF
